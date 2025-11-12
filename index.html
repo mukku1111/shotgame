@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>확률형 경품 사격 게임</title>
+    <style>
+        /* CSS: 기본 스타일 */
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            user-select: none;
+        }
+        #game-container {
+            width: 800px;
+            margin: 20px auto;
+            border: 2px solid #333;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* ★ 이름 입력 필드 스타일 추가 */
+        #player-input-area {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        #player-name-input {
+            font-size: 1em;
+            padding: 5px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+        }
+
+        /* ★ 상태 표시줄 (수정됨) */
+        #status-bar {
+            display: flex;
+            justify-content: space-around; /* ★ 분산 정렬로 수정 */
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #status-bar span { color: #d9534f; }
+
+        /* 게임 영역 */
+        #game-area {
+            width: 100%;
+            height: 500px;
+            border: 2px solid black;
+            position: relative;
+            cursor: crosshair;
+            overflow: hidden;
+            background-color: #f9f9f9;
+        }
+
+        /* ★ 경품 스타일: 클릭 가능하게 커서 변경 */
+        .target {
+            position: absolute;
+            width: 100px; /* 경품 크기 키움 */
+            height: 100px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: transform 0.1s ease;
+            cursor: pointer; /* 마우스 올리면 포인터로 변경 */
+        }
+
+        /* 애니메이션 */
+        #game-area.shooting { background-color: #fff9d4; }
+        .target.hit {
+            animation: shake 0.1s;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            50% { transform: translate(-1px, -1px) rotate(5deg); }
+            100% { transform: translate(1px, 1px) rotate(0deg); }
+        }
+
+        /* 게임 오버/승리 화면 */
+        #game-over {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em; color: red; font-weight: bold;
+            display: none; z-index: 10;
+        }
+        #win-screen {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 20;
+        }
+        #win-message {
+            font-size: 2.5em; color: #28a745; font-weight: bold;
+        }
+        
+        /* ★ 획득자 이름 표시 스타일 추가 */
+        #winner-name {
+            font-size: 1.5em;
+            color: #333;
+            margin-top: 10px;
+        }
+        
+        #won-prize-img {
+            width: 150px; height: 150px;
+            object-fit: contain; margin-top: 20px;
+            border: 3px solid #ccc; border-radius: 10px;
+            background-color: #fff;
+        }
+
+        /* '발사 결과' 메시지 */
+        #shot-result {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5em;
+            color: #d9534f;
+            font-weight: bold;
+            opacity: 0; /* 평소엔 투명 */
+            transition: opacity 0.5s ease-out;
+            z-index: 5;
+            pointer-events: none; /* 클릭 방해 안 함 */
+        }
+        #shot-result.show {
+            opacity: 1;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>경품 사격 게임 (3발의 기회!)</h1>
+
+    <div id="player-input-area">
+        <label for="player-name-input">도전자 이름: </label>
+        <input type="text" id="player-name-input" placeholder="이름 입력">
+    </div>
+
+    <div id="game-container">
+        <div id="status-bar">
+            <div>도전 횟수: <span id="challenge-count">0</span></div>
+            <div>남은 총알: <span id="ammo">3</span></div>
+        </div>
+
+        <div id="game-area">
+            <div id="game-over">GAME OVER</div>
+            
+            <div id="win-screen">
+                <h2 id="win-message"></h2>
+                <div id="winner-name"></div> 
+                <img id="won-prize-img" src="" alt="획득한 경품">
+            </div>
+
+            <div id="shot-result"></div>
+
+            </div>
+    </div>
+    <button id="restart-button" style="font-size: 1.2em; margin-top: 10px;">게임 시작</button>
+
+
+    <script>
+        // JavaScript: 게임 동작 로직
+
+        // --- 1. HTML 요소 가져오기 ---
+        const gameArea = document.getElementById('game-area');
+        const ammoDisplay = document.getElementById('ammo');
+        const gameOverDisplay = document.getElementById('game-over');
+        const restartButton = document.getElementById('restart-button');
+        const winScreen = document.getElementById('win-screen');
+        const winMessage = document.getElementById('win-message');
+        const wonPrizeImg = document.getElementById('won-prize-img');
+        const shotResult = document.getElementById('shot-result');
+        
+        const playerNameInput = document.getElementById('player-name-input');
+        const winnerNameDisplay = document.getElementById('winner-name');
+        const challengeCountDisplay = document.getElementById('challenge-count'); // ★ 추가
+
+        // --- 2. 게임 기본 설정 ---
+        const prizeTypes = {
+            'bear': { img: 'bear.png', name: '곰돌이 인형' },
+            'rabbit': { img: 'rabbit.png', name: '토끼 인형' },
+            'car': { img: 'car.png', name: '고급차 박스' }
+        };
+
+        let ammo = 3;
+        let gameRunning = true;
+        let targetsOnScreen = [];
+        let playerName = "도전자";
+        let challengeCount = 0; // ★ 도전 횟수 카운트 변수 추가
+
+        // --- 3. 핵심 게임 함수 ---
+
+        /** 게임 초기화/시작 함수 */
+        function initGame() {
+            // ★ 도전 횟수 증가 및 표시
+            challengeCount++;
+            challengeCountDisplay.textContent = challengeCount;
+
+            ammo = 3;
+            gameRunning = true;
+
+            ammoDisplay.textContent = ammo;
+            
+            gameOverDisplay.style.display = 'none';
+            gameOverDisplay.textContent = 'GAME OVER';
+            winScreen.style.display = 'none';
+            shotResult.classList.remove('show');
+
+            const inputName = playerNameInput.value.trim();
+            if (inputName !== "") {
+                playerName = inputName;
+            } else {
+                playerName = "도전자";
+            }
+            playerNameInput.disabled = true;
+
+            targetsOnScreen.forEach(target => target.element.remove());
+            targetsOnScreen = [];
+
+            setupTargets();
+        }
+
+        /** 3개 경품 나란히 배치하는 함수 (기존과 동일) */
+        function setupTargets() {
+            const prizes = ['bear', 'rabbit', 'car'];
+            const positions = [150, 350, 550];
+            const verticalPos = '180px';
+
+            prizes.forEach((key, index) => {
+                const prize = prizeTypes[key];
+                const targetElement = document.createElement('div');
+                targetElement.classList.add('target');
+                targetElement.style.backgroundImage = `url(${prize.img})`;
+                
+                targetElement.style.left = positions[index] + 'px';
+                targetElement.style.top = verticalPos;
+
+                const targetData = {
+                    element: targetElement,
+                    type: key,
+                    imgSrc: prize.img,
+                    name: prize.name
+                };
+                
+                gameArea.appendChild(targetElement);
+                targetsOnScreen.push(targetData);
+
+                targetElement.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    useAmmoAndCheckWin(targetData);
+                });
+            });
+        }
+
+        /** 총알 사용 및 승리/패배/빗나감 처리 (확률 40% 적용됨) */
+        function useAmmoAndCheckWin(targetData) {
+            if (!gameRunning || ammo <= 0) return;
+
+            ammo--;
+            ammoDisplay.textContent = ammo;
+
+            gameArea.classList.add('shooting');
+            setTimeout(() => gameArea.classList.remove('shooting'), 100);
+
+            if (targetData) {
+                targetData.element.classList.add('hit');
+                setTimeout(() => targetData.element.classList.remove('hit'), 100);
+
+                // ★ 확률 40% (0.4)
+                if (Math.random() < 0.4) {
+                    winTheGame(targetData);
+                } else {
+                    showShotResult("빗나감!");
+                    checkGameOver();
+                }
+
+            } else {
+                showShotResult("헛방!");
+                checkGameOver();
+            }
+        }
+        
+        /** 발사 결과 메시지 보여주는 함수 (기존과 동일) */
+        function showShotResult(message) {
+            shotResult.textContent = message;
+            shotResult.classList.add('show');
+            setTimeout(() => {
+                shotResult.classList.remove('show');
+            }, 700);
+        }
+
+        /** 총알 0개일 때 패배 처리 (기존과 동일) */
+        function checkGameOver() {
+            if (gameRunning && ammo <= 0) {
+                loseTheGame();
+            }
+        }
+
+        /** 게임 승리 처리 함수 (사용자 정의 메시지) */
+        function winTheGame(targetData) {
+            gameRunning = false;
+            
+            winMessage.textContent = `${targetData.name} 획득!`;
+            winnerNameDisplay.textContent = `축하해! ${playerName}`; // ★ 사용자 정의
+            wonPrizeImg.src = targetData.imgSrc;
+            winScreen.style.display = 'flex';
+        }
+
+        /** 게임 패배 처리 함수 (사용자 정의 메시지) */
+        function loseTheGame() {
+            gameRunning = false;
+            gameOverDisplay.textContent = `다음기회에...`; // ★ 사용자 정의
+            gameOverDisplay.style.display = 'block';
+            
+            targetsOnScreen.forEach(target => {
+                target.element.style.pointerEvents = 'none';
+            });
+        }
+
+        // --- 4. 이벤트 리스너 연결 ---
+
+        gameArea.addEventListener('click', () => {
+            useAmmoAndCheckWin(null);
+        });
+
+        restartButton.addEventListener('click', () => {
+            playerNameInput.disabled = false;
+            restartButton.textContent = "다시 시작"; 
+            initGame();
+        });
+
+        // --- 5. 게임 시작! ---
+        // (페이지 로드 시 자동 시작 안 함)
+
+    </script>
+
+</body>
+</html>
