@@ -2,17 +2,30 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>확률형 경품 사격 게임</title>
     <style>
+        /* ★ 2. box-sizing 적용 (크기 계산을 편하게 함) */
+        * {
+            box-sizing: border-box;
+        }
+
         /* CSS: 기본 스타일 */
         body {
             font-family: sans-serif;
             text-align: center;
             background-color: #f0f0f0;
             user-select: none;
+            margin: 0;
+            padding-bottom: 30px; /* 하단 여백 */
         }
+
+        /* ★ 3. game-container를 유동적으로 변경 */
         #game-container {
-            width: 800px;
+            width: 95%; /* 화면의 95% 너비 */
+            max-width: 800px; /* 최대 800px까지만 커짐 */
             margin: 20px auto;
             border: 2px solid #333;
             background-color: #fff;
@@ -21,7 +34,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
         
-        /* ★ 이름 입력 필드 스타일 추가 */
         #player-input-area {
             margin-bottom: 15px;
             font-size: 1.2em;
@@ -31,22 +43,28 @@
             padding: 5px;
             border: 2px solid #ccc;
             border-radius: 5px;
+            /* ★ 모바일에서 너비가 꽉 차도록 */
+            width: 80%;
+            max-width: 300px;
         }
 
-        /* ★ 상태 표시줄 (수정됨) */
         #status-bar {
             display: flex;
-            justify-content: space-around; /* ★ 분산 정렬로 수정 */
+            justify-content: space-around;
             font-size: 1.5em;
             font-weight: bold;
             margin-bottom: 10px;
         }
         #status-bar span { color: #d9534f; }
 
-        /* 게임 영역 */
+        /* ★ 4. game-area를 8:5 비율로 유지 (중요!) */
         #game-area {
-            width: 100%;
-            height: 500px;
+            width: 100%; /* 부모 너비에 꽉 참 */
+            
+            /* (변경) 800x500 비율을 유지하는 CSS 기법 */
+            height: 0;
+            padding-top: 62.5%; /* 500 / 800 = 0.625 */
+            
             border: 2px solid black;
             position: relative;
             cursor: crosshair;
@@ -54,19 +72,24 @@
             background-color: #f9f9f9;
         }
 
-        /* ★ 경품 스타일: 클릭 가능하게 커서 변경 */
+        /* ★ 5. 경품(.target) 크기를 %로 변경 */
         .target {
             position: absolute;
-            width: 100px; /* 경품 크기 키움 */
-            height: 100px;
+            
+            /* (변경) 100px / 800px = 12.5% */
+            width: 12.5%; 
+            
+            /* (변경) 100px / 500px = 20% */
+            height: 20%; 
+            
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             transition: transform 0.1s ease;
-            cursor: pointer; /* 마우스 올리면 포인터로 변경 */
+            cursor: pointer;
         }
 
-        /* 애니메이션 */
+        /* (애니메이션, 팝업 CSS는 기존과 동일 - % 기반이라 잘 작동함) */
         #game-area.shooting { background-color: #fff9d4; }
         .target.hit {
             animation: shake 0.1s;
@@ -76,33 +99,55 @@
             50% { transform: translate(-1px, -1px) rotate(5deg); }
             100% { transform: translate(1px, 1px) rotate(0deg); }
         }
-
-        /* 게임 오버/승리 화면 */
-        #game-over {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 3em; color: red; font-weight: bold;
-            display: none; z-index: 10;
+        
+        /* 팝업들은 % 기반이라 이미 반응형임 */
+        #game-over, #win-screen, #shot-result {
+            /* 팝업들이 game-area 비율에 맞게 보이도록 */
+            /* position: absolute는 game-area를 기준으로 함 */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex; /* flex로 중앙 정렬 */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            
+            /* 기존 스타일 오버라이드 */
+            transform: none; 
+            z-index: 10;
         }
+        
         #win-screen {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
             background-color: rgba(255, 255, 255, 0.9);
-            display: none; flex-direction: column;
-            align-items: center; justify-content: center;
+            display: none; /* 평소엔 숨김 */
             z-index: 20;
         }
+        #game-over {
+            font-size: 3em; color: red; font-weight: bold;
+            display: none;
+        }
+        
+        #shot-result {
+            font-size: 2.5em; color: #d9534f;
+            font-weight: bold; opacity: 0;
+            transition: opacity 0.5s ease-out;
+            pointer-events: none;
+            /* flex가 아닌 원래 방식 유지 */
+            display: block;
+            top: 40%; left: 50%;
+            width: auto; height: auto;
+            transform: translate(-50%, -50%);
+        }
+        #shot-result.show { opacity: 1; }
+
         #win-message {
             font-size: 2.5em; color: #28a745; font-weight: bold;
         }
-        
-        /* ★ 획득자 이름 표시 스타일 추가 */
         #winner-name {
-            font-size: 1.5em;
-            color: #333;
-            margin-top: 10px;
+            font-size: 1.5em; color: #333; margin-top: 10px;
         }
-        
         #won-prize-img {
             width: 150px; height: 150px;
             object-fit: contain; margin-top: 20px;
@@ -110,22 +155,28 @@
             background-color: #fff;
         }
 
-        /* '발사 결과' 메시지 */
-        #shot-result {
-            position: absolute;
-            top: 40%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5em;
-            color: #d9534f;
-            font-weight: bold;
-            opacity: 0; /* 평소엔 투명 */
-            transition: opacity 0.5s ease-out;
-            z-index: 5;
-            pointer-events: none; /* 클릭 방해 안 함 */
-        }
-        #shot-result.show {
-            opacity: 1;
+
+        /* ★ 6. 미디어 쿼리 (모바일 화면용 글꼴 축소) */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8em; /* 폰트 줄임 */
+            }
+            #status-bar {
+                font-size: 1em; /* 폰트 줄임 */
+            }
+            #win-message, #shot-result.show {
+                font-size: 1.5em; /* 폰트 줄임 */
+            }
+            #game-over {
+                font-size: 2em; /* 폰트 줄임 */
+            }
+            #winner-name {
+                font-size: 1.2em;
+            }
+            #won-prize-img {
+                width: 100px; /* 이미지 줄임 */
+                height: 100px;
+            }
         }
 
     </style>
@@ -155,15 +206,13 @@
             </div>
 
             <div id="shot-result"></div>
-
+            
             </div>
     </div>
     <button id="restart-button" style="font-size: 1.2em; margin-top: 10px;">게임 시작</button>
 
 
     <script>
-        // JavaScript: 게임 동작 로직
-
         // --- 1. HTML 요소 가져오기 ---
         const gameArea = document.getElementById('game-area');
         const ammoDisplay = document.getElementById('ammo');
@@ -173,10 +222,9 @@
         const winMessage = document.getElementById('win-message');
         const wonPrizeImg = document.getElementById('won-prize-img');
         const shotResult = document.getElementById('shot-result');
-        
         const playerNameInput = document.getElementById('player-name-input');
         const winnerNameDisplay = document.getElementById('winner-name');
-        const challengeCountDisplay = document.getElementById('challenge-count'); // ★ 추가
+        const challengeCountDisplay = document.getElementById('challenge-count');
 
         // --- 2. 게임 기본 설정 ---
         const prizeTypes = {
@@ -189,19 +237,15 @@
         let gameRunning = true;
         let targetsOnScreen = [];
         let playerName = "도전자";
-        let challengeCount = 0; // ★ 도전 횟수 카운트 변수 추가
+        let challengeCount = 0;
 
         // --- 3. 핵심 게임 함수 ---
 
-        /** 게임 초기화/시작 함수 */
         function initGame() {
-            // ★ 도전 횟수 증가 및 표시
             challengeCount++;
             challengeCountDisplay.textContent = challengeCount;
-
             ammo = 3;
             gameRunning = true;
-
             ammoDisplay.textContent = ammo;
             
             gameOverDisplay.style.display = 'none';
@@ -223,11 +267,18 @@
             setupTargets();
         }
 
-        /** 3개 경품 나란히 배치하는 함수 (기존과 동일) */
+        /** ★ 7. (JavaScript) 경품 위치를 %로 변경 */
         function setupTargets() {
             const prizes = ['bear', 'rabbit', 'car'];
-            const positions = [150, 350, 550];
-            const verticalPos = '180px';
+            
+            // (변경) 800px 기준 픽셀 -> %로 변경
+            // 150 / 800 = 18.75%
+            // 350 / 800 = 43.75%
+            // 550 / 800 = 68.75%
+            const positions = ['18.75%', '43.75%', '68.75%'];
+            
+            // (변경) 500px 기준 180px -> 36%
+            const verticalPos = '36%'; // 180 / 500 = 0.36
 
             prizes.forEach((key, index) => {
                 const prize = prizeTypes[key];
@@ -235,7 +286,8 @@
                 targetElement.classList.add('target');
                 targetElement.style.backgroundImage = `url(${prize.img})`;
                 
-                targetElement.style.left = positions[index] + 'px';
+                // (변경) % 값으로 위치 설정
+                targetElement.style.left = positions[index];
                 targetElement.style.top = verticalPos;
 
                 const targetData = {
@@ -255,7 +307,7 @@
             });
         }
 
-        /** 총알 사용 및 승리/패배/빗나감 처리 (확률 40% 적용됨) */
+        /** 총알 사용 및 승리/패배/빗나감 처리 (기존과 동일) */
         function useAmmoAndCheckWin(targetData) {
             if (!gameRunning || ammo <= 0) return;
 
@@ -269,7 +321,7 @@
                 targetData.element.classList.add('hit');
                 setTimeout(() => targetData.element.classList.remove('hit'), 100);
 
-                // ★ 확률 40% (0.4)
+                // 확률 40% (0.4)
                 if (Math.random() < 0.4) {
                     winTheGame(targetData);
                 } else {
@@ -283,7 +335,7 @@
             }
         }
         
-        /** 발사 결과 메시지 보여주는 함수 (기존과 동일) */
+        /** 발사 결과 메시지 (기존과 동일) */
         function showShotResult(message) {
             shotResult.textContent = message;
             shotResult.classList.add('show');
@@ -299,21 +351,21 @@
             }
         }
 
-        /** 게임 승리 처리 함수 (사용자 정의 메시지) */
+        /** 게임 승리 처리 (기존과 동일) */
         function winTheGame(targetData) {
             gameRunning = false;
             
             winMessage.textContent = `${targetData.name} 획득!`;
-            winnerNameDisplay.textContent = `축하해! ${playerName}`; // ★ 사용자 정의
+            winnerNameDisplay.textContent = `축하해! ${playerName}`;
             wonPrizeImg.src = targetData.imgSrc;
             winScreen.style.display = 'flex';
         }
 
-        /** 게임 패배 처리 함수 (사용자 정의 메시지) */
+        /** 게임 패배 처리 (기존과 동일) */
         function loseTheGame() {
             gameRunning = false;
-            gameOverDisplay.textContent = `다음기회에...`; // ★ 사용자 정의
-            gameOverDisplay.style.display = 'block';
+            gameOverDisplay.textContent = `다음기회에...`;
+            gameOverDisplay.style.display = 'flex'; // ★ flex로 변경
             
             targetsOnScreen.forEach(target => {
                 target.element.style.pointerEvents = 'none';
@@ -321,7 +373,6 @@
         }
 
         // --- 4. 이벤트 리스너 연결 ---
-
         gameArea.addEventListener('click', () => {
             useAmmoAndCheckWin(null);
         });
@@ -331,9 +382,8 @@
             restartButton.textContent = "다시 시작"; 
             initGame();
         });
-
-        // --- 5. 게임 시작! ---
-        // (페이지 로드 시 자동 시작 안 함)
+        
+        // --- 5. (페이지 로드 시 자동 시작 안 함) ---
 
     </script>
 
